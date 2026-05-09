@@ -315,7 +315,7 @@ function Section({ id, title, icon, children }) {
   );
 }
 
-function SaveStatusMessage({ saveStatus, compact = false }) {
+function SaveStatusMessage({ status, saveStatus = status, compact = false }) {
   if (!saveStatus) return null;
 
   return (
@@ -331,88 +331,6 @@ function SaveStatusMessage({ saveStatus, compact = false }) {
     >
       {saveStatus.message}
     </p>
-  );
-}
-
-function SheetRowTable({ row }) {
-  return (
-    <div className="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
-      <table className="w-full text-left text-sm">
-        <tbody>
-          {sheetColumns.map((col) => (
-            <tr key={col} className="border-b border-slate-100 last:border-none">
-              <th className="w-40 bg-slate-50 px-3 py-2 align-top text-xs font-semibold text-slate-600">{col}</th>
-              <td className="px-3 py-2 align-top text-slate-800">{row[col]}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-
-function SheetPreview({ row, copied, isSaving, saveStatus, onCopy, onSave, onReset }) {
-  return (
-    <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
-      <h2 className="text-lg font-semibold">Sheet-ready row</h2>
-      <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns.</p>
-      <SheetRowTable row={row} />
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button onClick={onCopy} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700">
-          {Icons.clipboard} {copied ? "Copied" : "Copy TSV row"}
-        </button>
-        <button onClick={onSave} disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
-          {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
-        </button>
-        <button onClick={onReset} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
-          {Icons.reset} Reset
-        </button>
-      </div>
-      <SaveStatusMessage saveStatus={saveStatus} />
-    </div>
-  );
-}
-
-function WineLogList({ filtered, onSelectWine }) {
-  return (
-    <div className="mt-4 space-y-3">
-      {filtered.map((w) => (
-        <button
-          key={w.id}
-          onClick={() => onSelectWine(w)}
-          className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:bg-slate-50"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold text-slate-900">{w.wine || "Unnamed wine"}</div>
-              <div className="mt-1 text-sm text-slate-600">{[w.vintage, w.region, w.grape].filter(Boolean).join(" • ")}</div>
-            </div>
-            <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">{normalizeRating(w.rating) || "—"}</div>
-          </div>
-          <p className="mt-2 line-clamp-2 text-sm text-slate-600">{w.oneLineMemory || w.palateNotes || "No note yet."}</p>
-          <div className="mt-3 flex gap-2 text-xs text-slate-500">
-            <span>{w.buyAgain}</span>
-            <span>•</span>
-            <span>{w.dateAdded}</span>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function WineLogSearch({ query, setQuery }) {
-  return (
-    <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-      <span className="text-slate-400">⌕</span>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search grape, region, rating..."
-        className="w-full text-sm outline-none"
-      />
-    </div>
   );
 }
 
@@ -747,38 +665,72 @@ export default function WineTastingAppPrototype() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:hidden">
-              <summary className="cursor-pointer list-none text-lg font-semibold">Sheet-ready row</summary>
-              <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns. Tap to review before saving.</p>
-              <SheetRowTable row={row} />
-            </details>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-semibold">Sheet-ready row</h2>
+              <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns.</p>
+              <div className="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left text-sm">
+                  <tbody>
+                    {sheetColumns.map((col) => (
+                      <tr key={col} className="border-b border-slate-100 last:border-none">
+                        <th className="w-40 bg-slate-50 px-3 py-2 align-top text-xs font-semibold text-slate-600">{col}</th>
+                        <td className="px-3 py-2 align-top text-slate-800">{row[col]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={copyRow} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700">
+                  {Icons.clipboard} {copied ? "Copied" : "Copy TSV row"}
+                </button>
+                <button onClick={saveWine} disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                  {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
+                </button>
+                <button onClick={() => resetTastingForm()} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                  {Icons.reset} Reset
+                </button>
+              </div>
+              <SaveStatusMessage status={saveStatus} />
+            </div>
 
-            <SheetPreview
-              row={row}
-              copied={copied}
-              isSaving={isSaving}
-              saveStatus={saveStatus}
-              onCopy={copyRow}
-              onSave={saveWine}
-              onReset={() => resetTastingForm()}
-            />
-
-            <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:hidden">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                <span className="text-lg font-semibold">Wine Log</span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{wines.length} wines</span>
-              </summary>
-              <WineLogSearch query={query} setQuery={setQuery} />
-              <WineLogList filtered={filtered} onSelectWine={(w) => setWine({ ...createStarterWine(), ...w })} />
-            </details>
-
-            <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Wine Log</h2>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{wines.length} wines</span>
               </div>
-              <WineLogSearch query={query} setQuery={setQuery} />
-              <WineLogList filtered={filtered} onSelectWine={(w) => setWine({ ...createStarterWine(), ...w })} />
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <span className="text-slate-400">⌕</span>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search grape, region, rating..."
+                  className="w-full text-sm outline-none"
+                />
+              </div>
+              <div className="mt-4 space-y-3">
+                {filtered.map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => setWine({ ...createStarterWine(), ...w })}
+                    className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-900">{w.wine || "Unnamed wine"}</div>
+                        <div className="mt-1 text-sm text-slate-600">{[w.vintage, w.region, w.grape].filter(Boolean).join(" • ")}</div>
+                      </div>
+                      <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">{normalizeRating(w.rating) || "—"}</div>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm text-slate-600">{w.oneLineMemory || w.palateNotes || "No note yet."}</p>
+                    <div className="mt-3 flex gap-2 text-xs text-slate-500">
+                      <span>{w.buyAgain}</span>
+                      <span>•</span>
+                      <span>{w.dateAdded}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -798,7 +750,7 @@ export default function WineTastingAppPrototype() {
           >
             {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
           </button>
-          <SaveStatusMessage saveStatus={saveStatus} compact />
+          <SaveStatusMessage status={saveStatus} compact />
         </div>
       </div>
     </div>
