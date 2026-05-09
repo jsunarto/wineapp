@@ -1,14 +1,14 @@
+import { normalizeRating } from "../lib/wineSheet";
 import WineDetailCard from "./WineDetailCard";
 
-export default function WineLogPanel({
-  wines,
+export default function WineLog({
   filteredWines,
-  query,
   onQueryChange,
+  onWineLoad,
+  onWineView,
+  query,
   selectedWine,
-  onSelectWine,
-  onLoadWine,
-  normalizeRating,
+  wines,
 }) {
   return (
     <>
@@ -21,7 +21,7 @@ export default function WineLogPanel({
           <span className="text-slate-400">⌕</span>
           <input
             value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            onChange={(event) => onQueryChange(event.target.value)}
             placeholder="Search grape, region, rating..."
             className="w-full text-sm outline-none"
           />
@@ -48,14 +48,14 @@ export default function WineLogPanel({
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => onSelectWine(wine)}
+                  onClick={() => onWineView(wine)}
                   className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
                 >
                   View details
                 </button>
                 <button
                   type="button"
-                  onClick={() => onLoadWine(wine)}
+                  onClick={() => onWineLoad(wine)}
                   className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50"
                 >
                   Load into form / edit
@@ -66,7 +66,7 @@ export default function WineLogPanel({
         </div>
       </div>
 
-      <WineDetailCard wine={selectedWine} onLoadWine={onLoadWine} normalizeRating={normalizeRating} />
+      <WineDetailCard wine={selectedWine} onLoadWine={onWineLoad} />
     </>
   );
 }

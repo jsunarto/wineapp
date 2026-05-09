@@ -1,6 +1,4 @@
-function joinClean(parts) {
-  return parts.filter(Boolean).join("; ");
-}
+import { joinClean, normalizeRating } from "../lib/wineSheet";
 
 function DetailSection({ title, children }) {
   return (
@@ -49,7 +47,7 @@ function buildSweetness(wine) {
     : wine.sweetness;
 }
 
-export default function WineDetailCard({ wine, onLoadWine, normalizeRating }) {
+export default function WineDetailCard({ wine, onLoadWine }) {
   if (!wine) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500 shadow-sm">
