@@ -422,21 +422,23 @@ export default function WineTastingAppPrototype() {
   const [labelInputKey, setLabelInputKey] = useState(0);
   const [scanMode, setScanMode] = useState("Front label");
 
-  useEffect(() => {
-    const loadSavedWines = window.setTimeout(() => {
-      try {
-        const saved = localStorage.getItem("wine-log-prototype");
-        if (saved) {
-          setWines(JSON.parse(saved));
-        }
-      } catch {
-        setWines(demoWines);
-      } finally {
-        setHasLoadedSavedWines(true);
+  const loadSavedWines = () => {
+    try {
+      const saved = localStorage.getItem("wine-log-prototype");
+      if (saved) {
+        setWines(JSON.parse(saved));
       }
-    }, 0);
+    } catch {
+      setWines(demoWines);
+    } finally {
+      setHasLoadedSavedWines(true);
+    }
+  };
 
-    return () => window.clearTimeout(loadSavedWines);
+  useEffect(() => {
+    const loadSavedWinesTimer = window.setTimeout(loadSavedWines, 0);
+
+    return () => window.clearTimeout(loadSavedWinesTimer);
   }, []);
 
   useEffect(() => {
