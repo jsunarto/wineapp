@@ -137,27 +137,6 @@ const starterWine = {
   oneLineMemory: "",
 };
 
-const scanModeOptions = ["Front label", "Back label", "Both / additional label"];
-
-const scanModeDescriptions = {
-  "Front label": "Looking for wine name, producer/label, region, country, grape, and vintage.",
-  "Back label": "Looking for ABV, producer/bottler/importer, and technical label facts.",
-  "Both / additional label": "Will merge additional facts into the current bottle fields without overwriting differences automatically.",
-};
-
-const scanFieldLabels = {
-  wine: "Wine",
-  producer: "Producer / Label",
-  region: "Region",
-  country: "Country",
-  grape: "Grape / Blend",
-  vintage: "Vintage",
-  price: "Price",
-  abv: "Listed ABV",
-};
-
-const scanFieldOrder = ["wine", "producer", "region", "country", "grape", "vintage", "price", "abv"];
-
 function normalizeCountry(country) {
   if (!country) return "";
   const cleaned = country.trim();
