@@ -398,12 +398,6 @@ function SaveStatusMessage({ status, compact = false }) {
   );
 }
 
-function SaveStatusMessage({ status }) {
-  const currentStatus = status || {
-    type: "idle",
-    message: "Ready to save your tasting note when the row looks right.",
-  };
-
   const classNames = {
     idle: "border-slate-200 bg-slate-50 text-slate-600",
     saving: "border-blue-200 bg-blue-50 text-blue-800",
@@ -429,34 +423,6 @@ function createStarterWine() {
     ...starterWine,
     dateAdded: new Date().toISOString().slice(0, 10),
   };
-}
-
-function comparableScanValue(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function getScanFieldReviews(result, currentWine) {
-  const fields = result?.fields || {};
-
-  return scanFieldOrder.map((key) => {
-    const currentValue = currentWine?.[key] || "";
-    const scannedValue = fields[key] || "";
-    const hasCurrent = Boolean(String(currentValue).trim());
-    const hasScanned = Boolean(String(scannedValue).trim());
-    const isConflict = hasCurrent && hasScanned && comparableScanValue(currentValue) !== comparableScanValue(scannedValue);
-    const isSafeToApply = !hasCurrent && hasScanned;
-
-    return {
-      key,
-      label: scanFieldLabels[key] || key,
-      currentValue,
-      scannedValue,
-      confidence: result?.confidence?.[key] || "—",
-      status: isConflict ? "needs confirmation" : isSafeToApply ? "safe to apply" : hasScanned ? "already matches or filled" : "not found",
-      isConflict,
-      isSafeToApply,
-    };
-  });
 }
 
 export default function WineTastingAppPrototype() {
