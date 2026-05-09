@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import PalateDashboard from "@/components/PalateDashboard";
 
 function Icon({ children, className = "" }) {
   return <span className={`inline-flex h-5 w-5 items-center justify-center ${className}`}>{children}</span>;
@@ -764,6 +765,8 @@ export default function WineTastingAppPrototype() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <PalateDashboard wines={wines} />
+
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-lg font-semibold">Sheet-ready row</h2>
               <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns.</p>
