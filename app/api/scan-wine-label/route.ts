@@ -6,14 +6,21 @@ let openaiClient: OpenAI | null = null;
 let openaiClientApiKey: string | null = null;
 
 const scanModeInstructions: Record<string, string> = {
-  front: "This is the front label. Prioritize the wine name, producer, region, grape/blend, vintage, and visible appellation. Do not infer back-label details like ABV unless visible.",
-  back: "This is the back label. Prioritize ABV, importer/fine-print facts, blend details, producer, region, and any clarifying bottle facts. Do not overwrite front-label identity unless the text is explicit.",
-  both: "This is an additional label or a combined front/back scan. Use it to fill missing bottle facts and flag any value that may conflict with a previously captured field as needing user confirmation.",
+  "Front label": "This is the front label. Prioritize the wine name, producer, region, grape/blend, vintage, and visible appellation. Do not infer back-label details like ABV unless visible.",
+  "Back label": "This is the back label. Prioritize ABV, importer/fine-print facts, blend details, producer, region, and any clarifying bottle facts. Do not overwrite front-label identity unless the text is explicit.",
+  "Both / additional label": "This is an additional label or a combined front/back scan. Use it to fill missing bottle facts and flag any value that may conflict with a previously captured field as needing user confirmation.",
+};
+
+const scanModeAliases: Record<string, string> = {
+  front: "Front label",
+  back: "Back label",
+  both: "Both / additional label",
 };
 
 function normalizeScanMode(value: FormDataEntryValue | null) {
-  const mode = typeof value === "string" ? value : "front";
-  return Object.prototype.hasOwnProperty.call(scanModeInstructions, mode) ? mode : "front";
+  const mode = typeof value === "string" ? value : "Front label";
+  const normalizedMode = scanModeAliases[mode] || mode;
+  return Object.prototype.hasOwnProperty.call(scanModeInstructions, normalizedMode) ? normalizedMode : "Front label";
 }
 
 function getOpenAIClient() {
