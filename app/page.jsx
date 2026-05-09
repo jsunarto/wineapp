@@ -552,31 +552,23 @@ export default function WineTastingAppPrototype() {
   const applyAutofillResult = () => {
     if (!autofillResult?.fields) return;
     setSaveStatus(null);
-
-    const safeRows = scanFieldReviews.filter((review) => review.isSafeToApply);
-    const conflictRows = scanFieldReviews.filter((review) => review.isConflict);
-
+    const fields = autofillResult.fields;
     setWine((prev) => {
       const next = { ...prev };
 
-      safeRows.forEach(({ key, scannedValue }) => {
-        if (!String(next[key] || "").trim() && String(scannedValue || "").trim()) {
-          next[key] = scannedValue;
+      scanFieldOrder.forEach((key) => {
+        if (!String(next[key] || "").trim() && String(fields[key] || "").trim()) {
+          next[key] = fields[key];
         }
       });
 
-      if (safeRows.length > 0 && !String(next.whereBought || "").trim()) {
+      if (!next.whereBought) {
         next.whereBought = "Prefilled from label scan; verify manually";
       }
 
       return next;
     });
-
-    setLookupStatus(
-      conflictRows.length > 0
-        ? `Applied ${safeRows.length} blank field${safeRows.length === 1 ? "" : "s"}. Review ${conflictRows.length} conflicting scanned value${conflictRows.length === 1 ? "" : "s"} manually before saving.`
-        : `Applied ${safeRows.length} blank field${safeRows.length === 1 ? "" : "s"}. Existing bottle fields were not overwritten.`
-    );
+    setLookupStatus("Applied only blank bottle fields from the scan. Review any conflicts manually before saving.");
   };
 
   const handleLabelUpload = (file) => {
@@ -641,11 +633,11 @@ export default function WineTastingAppPrototype() {
                         </span>
                       </div>
 
-                      {(autofillResult.status === "matched" || autofillResult.status === "uncertain") && (
+                      {["matched", "uncertain"].includes(autofillResult.status) && (
                         <div className="mt-3 space-y-2">
                           <div className="overflow-hidden rounded-xl border border-slate-200">
                             {scanFieldReviews.map((review) => (
-                              <div key={review.key} className="grid gap-1 border-b border-slate-100 p-2 text-sm last:border-none md:grid-cols-[110px_1fr_1fr_120px] md:items-center">
+                              <div key={review.key} className="grid gap-1 border-b border-slate-100 p-2 text-sm last:border-none md:grid-cols-[110px_1fr_1fr_120px]">
                                 <div className="font-medium text-slate-700">{review.label}</div>
                                 <div className="text-slate-600">Current: <span className="font-medium text-slate-900">{review.currentValue || "—"}</span></div>
                                 <div className="text-slate-600">Scanned: <span className="font-medium text-slate-900">{review.scannedValue || "—"}</span></div>
