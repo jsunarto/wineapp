@@ -272,7 +272,7 @@ function TextInput({ value, onChange, placeholder = "" }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     />
   );
 }
@@ -284,7 +284,7 @@ function TextArea({ value, onChange, placeholder = "" }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={3}
-      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     />
   );
 }
@@ -294,7 +294,7 @@ function Select({ value, onChange, options }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     >
       {options.map((o) => (
         <option key={o} value={o}>{o}</option>
@@ -303,14 +303,50 @@ function Select({ value, onChange, options }) {
   );
 }
 
-function Section({ title, icon, children }) {
+function Section({ id, title, icon, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
+    <section id={id} className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3 md:mb-4">
         {icon}
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-base font-semibold text-slate-900 md:text-lg">{title}</h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function SaveStatusMessage({ saveStatus, compact = false }) {
+  if (!saveStatus) return null;
+
+  return (
+    <p
+      role="status"
+      className={`${compact ? "mt-2 px-3 py-2 text-xs" : "mt-3 p-3 text-sm"} rounded-xl ${
+        saveStatus.type === "success"
+          ? "bg-green-50 text-green-800"
+          : saveStatus.type === "error"
+            ? "bg-red-50 text-red-800"
+            : "bg-slate-50 text-slate-600"
+      }`}
+    >
+      {saveStatus.message}
+    </p>
+  );
+}
+
+function SheetRowTable({ row }) {
+  return (
+    <div className="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
+      <table className="w-full text-left text-sm">
+        <tbody>
+          {sheetColumns.map((col) => (
+            <tr key={col} className="border-b border-slate-100 last:border-none">
+              <th className="w-40 bg-slate-50 px-3 py-2 align-top text-xs font-semibold text-slate-600">{col}</th>
+              <td className="px-3 py-2 align-top text-slate-800">{row[col]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -478,45 +514,36 @@ export default function WineTastingAppPrototype() {
     setLookupStatus("Photo loaded. Click Scan label to read it with vision.");
   };
 
+  const sectionLinks = [
+    ["bottle", "Bottle"],
+    ["appearance", "Appearance"],
+    ["nose", "Nose"],
+    ["palate", "Palate"],
+    ["judgment", "Judgment"],
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="grid gap-6 p-6 md:grid-cols-[1.4fr_.9fr] md:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 pb-32 text-slate-900 md:p-8 md:pb-32 lg:pb-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+
+        <div className="order-1 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:order-2 md:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+                {Icons.search}
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-                {Icons.wine} Wine Learning Prototype
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Guided Wine Tasting Log</h1>
-              <p className="mt-3 max-w-2xl text-slate-600">
-                Capture your tasting note, convert it into your Google Sheet format, and build a searchable memory of wines you actually liked.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-900 p-5 text-white">
-              <div className="flex items-center gap-2 text-sm text-slate-300">{Icons.book} Next skill focus</div>
-              <p className="mt-2 text-xl font-semibold">Separate fruitiness from sweetness.</p>
-              <p className="mt-2 text-sm text-slate-300">A wine can taste ripe, jammy, or vanilla-sweet while still being technically dry.</p>
+              <h2 className="text-lg font-semibold text-slate-900">Scan the Label</h2>
+              <p className="mt-1 text-sm text-slate-600">Start here on your phone: upload or take a label photo, scan it, then apply the bottle fields.</p>
             </div>
           </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                {Icons.search}
-                <h2 className="text-lg font-semibold text-slate-900">Autofill Bottle Info</h2>
-              </div>
-              <div className="grid gap-4 md:grid-cols-[1fr_.8fr]">
+          <div className="grid gap-4 md:grid-cols-[1fr_.8fr]">
                 <div className="space-y-3">
                   <Field label="Label text / search terms">
                     <TextInput value={lookupText} onChange={setLookupText} placeholder="Optional hint: Reputation Napa Cabernet 2023" />
                   </Field>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={runAutofill} disabled={isScanning} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button onClick={runAutofill} disabled={isScanning} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
                       {Icons.search} {isScanning ? "Scanning..." : "Scan label"}
                     </button>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                    <label className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-base font-semibold text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
                       📷 Upload label
                       <input key={labelInputKey} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleLabelUpload(e.target.files?.[0])} />
                     </label>
@@ -560,13 +587,44 @@ export default function WineTastingAppPrototype() {
                     </div>
                   )}
                 </div>
-                <div className="flex min-h-36 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-sm text-slate-500">
-                  {labelPreview ? <img src={labelPreview} alt="Uploaded wine label preview" className="max-h-48 rounded-xl object-contain" /> : "Bottle label preview"}
+                <div className="flex min-h-52 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-sm text-slate-500 md:min-h-36">
+                  {labelPreview ? <img src={labelPreview} alt="Uploaded wine label preview" className="max-h-64 w-full rounded-xl object-contain md:max-h-56" /> : "Bottle label preview"}
                 </div>
               </div>
             </div>
+        <div className="order-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:order-1">
+          <div className="grid gap-6 p-6 md:grid-cols-[1.4fr_.9fr] md:p-8">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                {Icons.wine} Wine Learning Prototype
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Guided Wine Tasting Log</h1>
+              <p className="mt-3 max-w-2xl text-slate-600">
+                Capture your tasting note, convert it into your Google Sheet format, and build a searchable memory of wines you actually liked.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-900 p-5 text-white">
+              <div className="flex items-center gap-2 text-sm text-slate-300">{Icons.book} Next skill focus</div>
+              <p className="mt-2 text-xl font-semibold">Separate fruitiness from sweetness.</p>
+              <p className="mt-2 text-sm text-slate-300">A wine can taste ripe, jammy, or vanilla-sweet while still being technically dry.</p>
+            </div>
+          </div>
+        </div>
 
-            <Section title="Bottle Info" icon={Icons.wine}>
+        <div className="order-3 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+          <div className="space-y-4">
+            <nav aria-label="Jump to tasting section" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Jump to</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {sectionLinks.map(([id, label]) => (
+                  <a key={id} href={`#${id}`} className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
+                    {label}
+                  </a>
+                ))}
+              </div>
+            </nav>
+
+            <Section id="bottle" title="Bottle Info" icon={Icons.wine}>
               <Field label="Wine"><TextInput value={wine.wine} onChange={(v) => update("wine", v)} placeholder="Reputation" /></Field>
               <Field label="Producer / Label"><TextInput value={wine.producer} onChange={(v) => update("producer", v)} placeholder="Optional" /></Field>
               <Field label="Region"><TextInput value={wine.region} onChange={(v) => update("region", v)} placeholder="Napa Valley" /></Field>
@@ -578,13 +636,13 @@ export default function WineTastingAppPrototype() {
               <Field label="Date tasted"><TextInput value={wine.dateAdded} onChange={(v) => update("dateAdded", v)} /></Field>
             </Section>
 
-            <Section title="Appearance" icon={Icons.check}>
+            <Section id="appearance" title="Appearance" icon={Icons.check}>
               <Field label="Color"><TextInput value={wine.appearanceColor} onChange={(v) => update("appearanceColor", v)} placeholder="Dark red, ruby, gold..." /></Field>
               <Field label="Clear or cloudy?"><TextInput value={wine.appearanceClarity} onChange={(v) => update("appearanceClarity", v)} placeholder="Clear, opaque, cloudy, sediment..." /></Field>
               <Field label="Color depth"><Select value={wine.appearanceIntensity} onChange={(v) => update("appearanceIntensity", v)} options={["", "Pale", "Medium", "Deep", "Deep / intense"]} /></Field>
             </Section>
 
-            <Section title="Nose" icon={Icons.search}>
+            <Section id="nose" title="Nose" icon={Icons.search}>
               <Field label="Aroma intensity"><Select value={wine.noseIntensity} onChange={(v) => update("noseIntensity", v)} options={["", "Light", "Medium", "Pronounced", "Medium/pronounced"]} /></Field>
               <Field label="Fruit notes"><TextInput value={wine.fruitNotes} onChange={(v) => update("fruitNotes", v)} placeholder="Dark plum, cherry, lemon..." /></Field>
               <Field label="Non-fruit notes"><TextInput value={wine.nonFruitNotes} onChange={(v) => update("nonFruitNotes", v)} placeholder="Vanilla, earth, spice, mushroom..." /></Field>
@@ -592,7 +650,7 @@ export default function WineTastingAppPrototype() {
               <Field label="Any flaw?"><Select value={wine.flaw} onChange={(v) => update("flaw", v)} options={["Clean", "Corked", "Oxidized", "Brett / barnyard", "Unsure"]} /></Field>
             </Section>
 
-            <Section title="Palate" icon={Icons.star}>
+            <Section id="palate" title="Palate" icon={Icons.star}>
               <Field label="Sweetness"><Select value={wine.sweetness} onChange={(v) => update("sweetness", v)} options={["Dry", "Off-dry", "Medium-sweet", "Sweet"]} /></Field>
               <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 md:mt-6">
                 <input type="checkbox" checked={wine.perceivedSweetness} onChange={(e) => update("perceivedSweetness", e.target.checked)} />
@@ -610,7 +668,7 @@ export default function WineTastingAppPrototype() {
               <Field label="General palate note"><TextArea value={wine.palateNotes} onChange={(v) => update("palateNotes", v)} placeholder="What happened when you tasted it?" /></Field>
             </Section>
 
-            <Section title="Judgment" icon={Icons.save}>
+            <Section id="judgment" title="Judgment" icon={Icons.save}>
               <Field label="Food pairing"><TextInput value={wine.foodPairing} onChange={(v) => update("foodPairing", v)} placeholder="Steak, lamb, BBQ..." /></Field>
               <Field label="Avoid pairing with"><TextInput value={wine.avoidPairing} onChange={(v) => update("avoidPairing", v)} placeholder="Optional" /></Field>
               <Field label="Balance"><Select value={wine.balance} onChange={(v) => update("balance", v)} options={["Poor", "Okay", "Good", "Excellent"]} /></Field>
@@ -624,21 +682,16 @@ export default function WineTastingAppPrototype() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:hidden">
+              <summary className="cursor-pointer list-none text-lg font-semibold">Sheet-ready row</summary>
+              <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns. Tap to review before saving.</p>
+              <SheetRowTable row={row} />
+            </details>
+
+            <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
               <h2 className="text-lg font-semibold">Sheet-ready row</h2>
               <p className="mt-1 text-sm text-slate-600">This mirrors your current Google Sheet columns.</p>
-              <div className="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
-                <table className="w-full text-left text-sm">
-                  <tbody>
-                    {sheetColumns.map((col) => (
-                      <tr key={col} className="border-b border-slate-100 last:border-none">
-                        <th className="w-40 bg-slate-50 px-3 py-2 align-top text-xs font-semibold text-slate-600">{col}</th>
-                        <td className="px-3 py-2 align-top text-slate-800">{row[col]}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <SheetRowTable row={row} />
               <div className="mt-4 flex flex-wrap gap-2">
                 <button onClick={copyRow} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700">
                   {Icons.clipboard} {copied ? "Copied" : "Copy TSV row"}
@@ -650,23 +703,49 @@ export default function WineTastingAppPrototype() {
                   {Icons.reset} Reset
                 </button>
               </div>
-              {saveStatus && (
-                <p
-                  role="status"
-                  className={`mt-3 rounded-xl p-3 text-sm ${
-                    saveStatus.type === "success"
-                      ? "bg-green-50 text-green-800"
-                      : saveStatus.type === "error"
-                        ? "bg-red-50 text-red-800"
-                        : "bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {saveStatus.message}
-                </p>
-              )}
+              <SaveStatusMessage saveStatus={saveStatus} />
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span className="text-lg font-semibold">Wine Log</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{wines.length} wines</span>
+              </summary>
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <span className="text-slate-400">⌕</span>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search grape, region, rating..."
+                  className="w-full text-sm outline-none"
+                />
+              </div>
+              <div className="mt-4 space-y-3">
+                {filtered.map((w) => (
+                  <button
+                    key={w.id}
+                    onClick={() => setWine({ ...createStarterWine(), ...w })}
+                    className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-900">{w.wine || "Unnamed wine"}</div>
+                        <div className="mt-1 text-sm text-slate-600">{[w.vintage, w.region, w.grape].filter(Boolean).join(" • ")}</div>
+                      </div>
+                      <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">{normalizeRating(w.rating) || "—"}</div>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm text-slate-600">{w.oneLineMemory || w.palateNotes || "No note yet."}</p>
+                    <div className="mt-3 flex gap-2 text-xs text-slate-500">
+                      <span>{w.buyAgain}</span>
+                      <span>•</span>
+                      <span>{w.dateAdded}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            <div className="hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Wine Log</h2>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{wines.length} wines</span>
@@ -710,6 +789,19 @@ export default function WineTastingAppPrototype() {
               <p className="mt-1">Autofill calls your real /api/scan-wine-label route. Save now posts to /api/save-tasting, which should forward the row to your Google Sheet webhook.</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-10px_25px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+        <div className="mx-auto max-w-7xl">
+          <button
+            onClick={saveWine}
+            disabled={isSaving}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
+          </button>
+          <SaveStatusMessage saveStatus={saveStatus} compact />
         </div>
       </div>
     </div>
