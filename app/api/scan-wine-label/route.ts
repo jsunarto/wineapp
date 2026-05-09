@@ -2,18 +2,35 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
+let openaiClient: OpenAI | null = null;
+let openaiClientApiKey: string | null = null;
+
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  if (!openaiClient || openaiClientApiKey !== apiKey) {
+    openaiClient = new OpenAI({ apiKey });
+    openaiClientApiKey = apiKey;
+  }
+
+  return openaiClient;
+}
+
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const openai = getOpenAIClient();
 
-    if (!apiKey) {
+    if (!openai) {
       return Response.json(
         { error: "Missing OPENAI_API_KEY in the server environment." },
         { status: 500 }
       );
     }
 
-    const openai = new OpenAI({ apiKey });
     const formData = await req.formData();
     const image = formData.get("image");
 
