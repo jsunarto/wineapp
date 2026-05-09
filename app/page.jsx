@@ -17,6 +17,68 @@ const Icons = {
   check: <Icon>✓</Icon>,
 };
 
+
+const scanModeOptions = [
+  { value: "front", label: "Front label", description: "Best for wine name, producer, region, grape, and vintage." },
+  { value: "back", label: "Back label", description: "Best for ABV, importer, fine print, and blend details." },
+  { value: "both", label: "Both / additional label", description: "Use when adding another label photo to fill blanks without overwriting confirmed fields." },
+];
+
+const bottleScanFields = ["wine", "producer", "region", "country", "grape", "vintage", "price", "abv"];
+
+const bottleScanLabels = {
+  wine: "Wine",
+  producer: "Producer",
+  region: "Region",
+  country: "Country",
+  grape: "Grape",
+  vintage: "Vintage",
+  price: "Price",
+  abv: "ABV",
+};
+
+function isBlank(value) {
+  return !String(value ?? "").trim();
+}
+
+function normalizeForCompare(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function buildScanFieldReview(result, currentWine) {
+  const fields = result?.fields || {};
+
+  return bottleScanFields.map((key) => {
+    const scanned = fields[key] || "";
+    const current = currentWine[key] || "";
+    let status = "missing";
+    let statusLabel = "No scan value";
+
+    if (scanned) {
+      if (isBlank(current)) {
+        status = "apply";
+        statusLabel = "Safe to apply";
+      } else if (normalizeForCompare(current) === normalizeForCompare(scanned)) {
+        status = "same";
+        statusLabel = "Already matches";
+      } else {
+        status = "conflict";
+        statusLabel = "Needs confirmation";
+      }
+    }
+
+    return {
+      key,
+      label: bottleScanLabels[key],
+      current,
+      scanned,
+      confidence: result?.confidence?.[key] || "—",
+      status,
+      statusLabel,
+    };
+  });
+}
+
 const sheetColumns = [
   "Date Added",
   "Wine",
@@ -120,7 +182,7 @@ function normalizeScanResult(result) {
   };
 }
 
-async function scanWineLabelReal({ imageFile, labelText }) {
+async function scanWineLabelReal({ imageFile, labelText, scanMode }) {
   if (!imageFile) {
     throw new Error("Choose a bottle label image first.");
   }
@@ -128,6 +190,7 @@ async function scanWineLabelReal({ imageFile, labelText }) {
   const formData = new FormData();
   formData.append("image", imageFile);
   formData.append("labelText", labelText || "");
+  formData.append("scanMode", scanMode || "front");
 
   const res = await fetch("/api/scan-wine-label", {
     method: "POST",
@@ -355,6 +418,7 @@ export default function WineTastingAppPrototype() {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lookupText, setLookupText] = useState("");
+  const [scanMode, setScanMode] = useState("front");
   const [lookupStatus, setLookupStatus] = useState("Upload a bottle label or enter label text, then scan.");
   const [labelPreview, setLabelPreview] = useState(null);
   const [labelFile, setLabelFile] = useState(null);
@@ -388,6 +452,7 @@ export default function WineTastingAppPrototype() {
   const resetTastingForm = ({ clearSaveStatus = true } = {}) => {
     setWine(createStarterWine());
     setLookupText("");
+    setScanMode("front");
     setLookupStatus("Upload a bottle label or enter label text, then scan.");
     setLabelFile(null);
     clearLabelPreview();
@@ -453,7 +518,7 @@ export default function WineTastingAppPrototype() {
     setAutofillResult(null);
 
     try {
-      const result = await scanWineLabelReal({ imageFile: labelFile, labelText: lookupText });
+      const result = await scanWineLabelReal({ imageFile: labelFile, labelText: lookupText, scanMode });
       setAutofillResult(result);
 
       if (result.status === "matched" || result.status === "uncertain") {
@@ -472,20 +537,32 @@ export default function WineTastingAppPrototype() {
   const applyAutofillResult = () => {
     if (!autofillResult?.fields) return;
     setSaveStatus(null);
-    const fields = autofillResult.fields;
-    setWine((prev) => ({
-      ...prev,
-      wine: fields.wine || prev.wine,
-      producer: fields.producer || prev.producer,
-      region: fields.region || prev.region,
-      country: fields.country || prev.country,
-      grape: fields.grape || prev.grape,
-      vintage: fields.vintage || prev.vintage,
-      price: fields.price || prev.price,
-      abv: fields.abv || prev.abv,
-      whereBought: prev.whereBought || "Prefilled from label scan; verify manually",
-    }));
-    setLookupStatus("Applied extracted bottle fields. Now verify anything marked low/medium confidence before saving.");
+
+    const reviewRows = buildScanFieldReview(autofillResult, wine);
+    const safeRows = reviewRows.filter((row) => row.status === "apply");
+    const conflictRows = reviewRows.filter((row) => row.status === "conflict");
+
+    setWine((prev) => {
+      const next = { ...prev };
+
+      safeRows.forEach(({ key, scanned }) => {
+        if (isBlank(next[key])) {
+          next[key] = scanned;
+        }
+      });
+
+      if (safeRows.length > 0 && isBlank(next.whereBought)) {
+        next.whereBought = "Prefilled from label scan; verify manually";
+      }
+
+      return next;
+    });
+
+    setLookupStatus(
+      conflictRows.length > 0
+        ? `Applied ${safeRows.length} blank field${safeRows.length === 1 ? "" : "s"}. Review ${conflictRows.length} conflicting scanned value${conflictRows.length === 1 ? "" : "s"} manually before saving.`
+        : `Applied ${safeRows.length} blank field${safeRows.length === 1 ? "" : "s"}. Existing bottle fields were not overwritten.`
+    );
   };
 
   const handleLabelUpload = (file) => {
@@ -504,6 +581,8 @@ export default function WineTastingAppPrototype() {
     ["palate", "Palate"],
     ["judgment", "Judgment"],
   ];
+  const scanReviewRows = buildScanFieldReview(autofillResult, wine);
+  const hasSafeScanFields = scanReviewRows.some((row) => row.status === "apply");
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-32 text-slate-900 md:p-8 md:pb-32 lg:pb-8">
@@ -519,6 +598,20 @@ export default function WineTastingAppPrototype() {
           </div>
           <div className="grid gap-4 md:grid-cols-[1fr_.8fr]">
                 <div className="space-y-3">
+                  <Field label="Scan mode">
+                    <select
+                      value={scanMode}
+                      onChange={(e) => setScanMode(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
+                    >
+                      {scanModeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <p className="text-xs text-slate-500">
+                    {scanModeOptions.find((option) => option.value === scanMode)?.description}
+                  </p>
                   <Field label="Label text / search terms">
                     <TextInput value={lookupText} onChange={setLookupText} placeholder="Optional hint: Reputation Napa Cabernet 2023" />
                   </Field>
@@ -545,25 +638,49 @@ export default function WineTastingAppPrototype() {
                         </span>
                       </div>
 
-                      {autofillResult.status === "matched" && (
+                      {(autofillResult.status === "matched" || autofillResult.status === "uncertain") && (
                         <div className="mt-3 space-y-2">
-                          {Object.entries(autofillResult.fields).map(([key, value]) => (
-                            <div key={key} className="grid grid-cols-[90px_1fr_70px] gap-2 text-sm">
-                              <div className="capitalize text-slate-500">{key}</div>
-                              <div className="font-medium text-slate-900">{value || "—"}</div>
-                              <div className="text-xs text-slate-500">{autofillResult.confidence?.[key] || "—"}</div>
-                            </div>
-                          ))}
+                          <div className="overflow-hidden rounded-xl border border-slate-200">
+                            {scanReviewRows.map((row) => (
+                              <div key={row.key} className="grid gap-1 border-b border-slate-100 p-2 text-sm last:border-none md:grid-cols-[90px_1fr_1fr_110px] md:items-center">
+                                <div className="font-medium text-slate-600">{row.label}</div>
+                                <div>
+                                  <span className="text-xs text-slate-500 md:hidden">Current: </span>
+                                  <span className="text-slate-700">{row.current || "—"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-slate-500 md:hidden">Scanned: </span>
+                                  <span className="font-medium text-slate-900">{row.scanned || "—"}</span>
+                                  <span className="ml-2 text-xs text-slate-500">{row.confidence}</span>
+                                </div>
+                                <span
+                                  className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                    row.status === "conflict"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : row.status === "apply"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-slate-100 text-slate-600"
+                                  }`}
+                                >
+                                  {row.statusLabel}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                           <div className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
-                            Confirm: {autofillResult.needsUserConfirmation.join(", ")}
+                            Confirm: {autofillResult.needsUserConfirmation.join(", ") || "any value marked Needs confirmation"}
                           </div>
                           {autofillResult.rawText && (
                             <div className="rounded-xl bg-slate-50 p-2 text-xs text-slate-600">
                               Read label text: {autofillResult.rawText}
                             </div>
                           )}
-                          <button onClick={applyAutofillResult} className="mt-1 inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-600">
-                            ✓ Apply to bottle fields
+                          <button
+                            onClick={applyAutofillResult}
+                            disabled={!hasSafeScanFields}
+                            className="mt-1 inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            ✓ Apply safe blank fields
                           </button>
                         </div>
                       )}
