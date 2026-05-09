@@ -374,14 +374,8 @@ function getScanFieldReviews(result, currentWine) {
 
 export default function WineTastingAppPrototype() {
   const [wine, setWine] = useState(createStarterWine);
-  const [wines, setWines] = useState(() => {
-    try {
-      const saved = localStorage.getItem("wine-log-prototype");
-      return saved ? JSON.parse(saved) : demoWines;
-    } catch {
-      return demoWines;
-    }
-  });
+  const [wines, setWines] = useState(demoWines);
+  const [hasLoadedSavedWines, setHasLoadedSavedWines] = useState(false);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -396,8 +390,26 @@ export default function WineTastingAppPrototype() {
   const [labelInputKey, setLabelInputKey] = useState(0);
 
   useEffect(() => {
+    const loadSavedWines = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("wine-log-prototype");
+        if (saved) {
+          setWines(JSON.parse(saved));
+        }
+      } catch {
+        setWines(demoWines);
+      } finally {
+        setHasLoadedSavedWines(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(loadSavedWines);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSavedWines) return;
     localStorage.setItem("wine-log-prototype", JSON.stringify(wines));
-  }, [wines]);
+  }, [hasLoadedSavedWines, wines]);
 
   const row = useMemo(() => buildSheetRow(wine), [wine]);
   const tsv = useMemo(() => toTsv(row), [row]);
