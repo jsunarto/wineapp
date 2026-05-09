@@ -5,7 +5,7 @@ import { useState } from "react";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [status, setStatus] = useState("");
 
   async function scanLabel() {
@@ -79,7 +79,7 @@ export default function Home() {
             <p className="rounded-xl bg-slate-100 p-3 text-sm">{status}</p>
           )}
 
-          {result && (
+          {result !== null && (
             <pre className="overflow-auto rounded-xl bg-slate-900 p-4 text-sm text-white">
               {JSON.stringify(result, null, 2)}
             </pre>

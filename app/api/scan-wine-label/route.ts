@@ -2,12 +2,18 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return Response.json(
+        { error: "Missing OPENAI_API_KEY in the server environment." },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey });
     const formData = await req.formData();
     const image = formData.get("image");
 

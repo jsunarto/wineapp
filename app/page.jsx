@@ -315,8 +315,15 @@ function Section({ title, icon, children }) {
   );
 }
 
+function createStarterWine() {
+  return {
+    ...starterWine,
+    dateAdded: new Date().toISOString().slice(0, 10),
+  };
+}
+
 export default function WineTastingAppPrototype() {
-  const [wine, setWine] = useState(starterWine);
+  const [wine, setWine] = useState(createStarterWine);
   const [wines, setWines] = useState(() => {
     try {
       const saved = localStorage.getItem("wine-log-prototype");
@@ -334,6 +341,8 @@ export default function WineTastingAppPrototype() {
   const [labelFile, setLabelFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [autofillResult, setAutofillResult] = useState(null);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [labelInputKey, setLabelInputKey] = useState(0);
 
   useEffect(() => {
     localStorage.setItem("wine-log-prototype", JSON.stringify(wines));
@@ -342,7 +351,34 @@ export default function WineTastingAppPrototype() {
   const row = useMemo(() => buildSheetRow(wine), [wine]);
   const tsv = useMemo(() => toTsv(row), [row]);
 
-  const update = (key, value) => setWine((prev) => ({ ...prev, [key]: value }));
+  const update = (key, value) => {
+    setWine((prev) => ({ ...prev, [key]: value }));
+    setSaveStatus(null);
+  };
+
+  const clearLabelPreview = () => {
+    setLabelPreview((currentPreview) => {
+      if (currentPreview) {
+        URL.revokeObjectURL(currentPreview);
+      }
+
+      return null;
+    });
+  };
+
+  const resetTastingForm = ({ clearSaveStatus = true } = {}) => {
+    setWine(createStarterWine());
+    setLookupText("");
+    setLookupStatus("Upload a bottle label or enter label text, then scan.");
+    setLabelFile(null);
+    clearLabelPreview();
+    setAutofillResult(null);
+    setLabelInputKey((key) => key + 1);
+
+    if (clearSaveStatus) {
+      setSaveStatus(null);
+    }
+  };
 
   const filtered = wines.filter((w) => {
     const haystack = `${w.wine} ${w.region} ${w.country} ${w.grape} ${w.vintage} ${w.buyAgain} ${w.rating}`.toLowerCase();
@@ -351,11 +387,12 @@ export default function WineTastingAppPrototype() {
 
   const saveWine = async () => {
     if (!wine.wine.trim()) {
-      alert("Add a wine name before saving.");
+      setSaveStatus({ type: "error", message: "Add a wine name before saving." });
       return;
     }
 
     const rowToSave = buildSheetRow(wine);
+    setSaveStatus({ type: "info", message: "Saving tasting note to Google Sheet..." });
     setIsSaving(true);
 
     try {
@@ -374,11 +411,11 @@ export default function WineTastingAppPrototype() {
       }
 
       setWines((prev) => [{ ...wine, id: crypto.randomUUID() }, ...prev]);
-      setWine(starterWine);
-      alert("Saved to Google Sheet.");
+      resetTastingForm({ clearSaveStatus: false });
+      setSaveStatus({ type: "success", message: "Saved to Google Sheet. Ready for your next tasting note." });
     } catch (error) {
       console.error(error);
-      alert(error?.message || "Save failed.");
+      setSaveStatus({ type: "error", message: error?.message || "Save failed." });
     } finally {
       setIsSaving(false);
     }
@@ -392,6 +429,7 @@ export default function WineTastingAppPrototype() {
 
   const runAutofill = async () => {
     setIsScanning(true);
+    setSaveStatus(null);
     setLookupStatus("Scanning label with vision...");
     setAutofillResult(null);
 
@@ -414,6 +452,7 @@ export default function WineTastingAppPrototype() {
 
   const applyAutofillResult = () => {
     if (!autofillResult?.fields) return;
+    setSaveStatus(null);
     const fields = autofillResult.fields;
     setWine((prev) => ({
       ...prev,
@@ -433,6 +472,7 @@ export default function WineTastingAppPrototype() {
   const handleLabelUpload = (file) => {
     if (!file) return;
     setLabelFile(file);
+    clearLabelPreview();
     setLabelPreview(URL.createObjectURL(file));
     setAutofillResult(null);
     setLookupStatus("Photo loaded. Click Scan label to read it with vision.");
@@ -478,7 +518,7 @@ export default function WineTastingAppPrototype() {
                     </button>
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
                       📷 Upload label
-                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleLabelUpload(e.target.files?.[0])} />
+                      <input key={labelInputKey} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleLabelUpload(e.target.files?.[0])} />
                     </label>
                   </div>
                   <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{lookupStatus}</p>
@@ -606,10 +646,24 @@ export default function WineTastingAppPrototype() {
                 <button onClick={saveWine} disabled={isSaving} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
                   {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
                 </button>
-                <button onClick={() => setWine(starterWine)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                <button onClick={() => resetTastingForm()} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
                   {Icons.reset} Reset
                 </button>
               </div>
+              {saveStatus && (
+                <p
+                  role="status"
+                  className={`mt-3 rounded-xl p-3 text-sm ${
+                    saveStatus.type === "success"
+                      ? "bg-green-50 text-green-800"
+                      : saveStatus.type === "error"
+                        ? "bg-red-50 text-red-800"
+                        : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  {saveStatus.message}
+                </p>
+              )}
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -630,7 +684,7 @@ export default function WineTastingAppPrototype() {
                 {filtered.map((w) => (
                   <button
                     key={w.id}
-                    onClick={() => setWine({ ...starterWine, ...w })}
+                    onClick={() => setWine({ ...createStarterWine(), ...w })}
                     className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:bg-slate-50"
                   >
                     <div className="flex items-start justify-between gap-3">
