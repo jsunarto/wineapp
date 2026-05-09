@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import WineDetailCard from "./components/WineDetailCard";
 
 function Icon({ children, className = "" }) {
   return <span className={`inline-flex h-5 w-5 items-center justify-center ${className}`}>{children}</span>;
@@ -408,6 +409,7 @@ export default function WineTastingAppPrototype() {
   const [wine, setWine] = useState(createStarterWine);
   const [wines, setWines] = useState(demoWines);
   const [hasLoadedSavedWines, setHasLoadedSavedWines] = useState(false);
+  const [selectedWine, setSelectedWine] = useState(demoWines[0] || null);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -426,7 +428,9 @@ export default function WineTastingAppPrototype() {
       try {
         const saved = localStorage.getItem("wine-log-prototype");
         if (saved) {
-          setWines(JSON.parse(saved));
+          const parsedWines = JSON.parse(saved);
+          setWines(parsedWines);
+          setSelectedWine(parsedWines[0] || null);
         }
       } catch {
         setWines(demoWines);
@@ -483,6 +487,11 @@ export default function WineTastingAppPrototype() {
     return haystack.includes(query.toLowerCase());
   });
 
+  const loadWineIntoForm = (wineToLoad) => {
+    setWine({ ...createStarterWine(), ...wineToLoad });
+    setSaveStatus(null);
+  };
+
   const saveWine = async () => {
     if (!wine.wine.trim()) {
       setSaveStatus({ type: "error", message: "Add a wine name before saving." });
@@ -508,7 +517,9 @@ export default function WineTastingAppPrototype() {
         throw new Error(data.error || "Failed to save to Google Sheet.");
       }
 
-      setWines((prev) => [{ ...wine, id: crypto.randomUUID() }, ...prev]);
+      const savedWine = { ...wine, id: crypto.randomUUID() };
+      setWines((prev) => [savedWine, ...prev]);
+      setSelectedWine(savedWine);
       resetTastingForm({ clearSaveStatus: false });
       setSaveStatus({ type: "success", message: "Saved to Google Sheet. Ready for your next tasting note." });
     } catch (error) {
@@ -809,10 +820,9 @@ export default function WineTastingAppPrototype() {
               </div>
               <div className="mt-4 space-y-3">
                 {filtered.map((w) => (
-                  <button
+                  <div
                     key={w.id}
-                    onClick={() => setWine({ ...createStarterWine(), ...w })}
-                    className="w-full rounded-2xl border border-slate-200 p-4 text-left transition hover:bg-slate-50"
+                    className={`w-full rounded-2xl border p-4 text-left transition ${selectedWine?.id === w.id ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -827,10 +837,28 @@ export default function WineTastingAppPrototype() {
                       <span>•</span>
                       <span>{w.dateAdded}</span>
                     </div>
-                  </button>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWine(w)}
+                        className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+                      >
+                        View details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadWineIntoForm(w)}
+                        className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                      >
+                        Load into form / edit
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
+
+            <WineDetailCard wine={selectedWine} onLoadWine={loadWineIntoForm} normalizeRating={normalizeRating} />
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <div className="font-semibold">Next step</div>
