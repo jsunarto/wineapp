@@ -5,6 +5,24 @@ export const runtime = "nodejs";
 let openaiClient: OpenAI | null = null;
 let openaiClientApiKey: string | null = null;
 
+const scanModeInstructions: Record<string, string> = {
+  "Front label": "This is the front label. Prioritize the wine name, producer, region, grape/blend, vintage, and visible appellation. Do not infer back-label details like ABV unless visible.",
+  "Back label": "This is the back label. Prioritize ABV, importer/fine-print facts, blend details, producer, region, and any clarifying bottle facts. Do not overwrite front-label identity unless the text is explicit.",
+  "Both / additional label": "This is an additional label or a combined front/back scan. Use it to fill missing bottle facts and flag any value that may conflict with a previously captured field as needing user confirmation.",
+};
+
+const scanModeAliases: Record<string, string> = {
+  front: "Front label",
+  back: "Back label",
+  both: "Both / additional label",
+};
+
+function normalizeScanMode(value: FormDataEntryValue | null) {
+  const mode = typeof value === "string" ? value : "Front label";
+  const normalizedMode = scanModeAliases[mode] || mode;
+  return Object.prototype.hasOwnProperty.call(scanModeInstructions, normalizedMode) ? normalizedMode : "Front label";
+}
+
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -33,6 +51,7 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
     const image = formData.get("image");
+    const scanMode = normalizeScanMode(formData.get("scanMode"));
 
     if (!(image instanceof File)) {
       return Response.json(
@@ -89,6 +108,9 @@ Return ONLY valid JSON with this exact shape:
   "needsUserConfirmation": [],
   "sourceNote": ""
 }
+
+Scan context:
+- ${scanModeInstructions[scanMode]}
 
 Rules:
 - wine = the short wine/label name only. Do not include region, grape, or vintage if they have separate fields.

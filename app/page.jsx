@@ -17,6 +17,56 @@ const Icons = {
   check: <Icon>✓</Icon>,
 };
 
+
+const scanModeOptions = ["Front label", "Back label", "Both / additional label"];
+
+const scanModeDescriptions = {
+  "Front label": "Looking for wine name, producer/label, region, country, grape, and vintage.",
+  "Back label": "Looking for ABV, producer/bottler/importer, and technical label facts.",
+  "Both / additional label": "Will merge additional facts into the current bottle fields without overwriting differences automatically.",
+};
+
+const scanFieldLabels = {
+  wine: "Wine",
+  producer: "Producer / Label",
+  region: "Region",
+  country: "Country",
+  grape: "Grape / Blend",
+  vintage: "Vintage",
+  price: "Price",
+  abv: "Listed ABV",
+};
+
+const scanFieldOrder = ["wine", "producer", "region", "country", "grape", "vintage", "price", "abv"];
+
+function comparableScanValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getScanFieldReviews(result, currentWine) {
+  const fields = result?.fields || {};
+
+  return scanFieldOrder.map((key) => {
+    const currentValue = currentWine?.[key] || "";
+    const scannedValue = fields[key] || "";
+    const hasCurrent = Boolean(String(currentValue).trim());
+    const hasScanned = Boolean(String(scannedValue).trim());
+    const isConflict = hasCurrent && hasScanned && comparableScanValue(currentValue) !== comparableScanValue(scannedValue);
+    const isSafeToApply = !hasCurrent && hasScanned;
+
+    return {
+      key,
+      label: scanFieldLabels[key] || key,
+      currentValue,
+      scannedValue,
+      confidence: result?.confidence?.[key] || "—",
+      status: isConflict ? "needs confirmation" : isSafeToApply ? "safe to apply" : hasScanned ? "already matches or filled" : "not found",
+      isConflict,
+      isSafeToApply,
+    };
+  });
+}
+
 const sheetColumns = [
   "Date Added",
   "Wine",
@@ -43,6 +93,8 @@ const sheetColumns = [
   "Expert / Expected Tasting Notes",
   "Critic Score / Source",
 ];
+
+const INITIAL_LOOKUP_STATUS = "Upload a bottle label or enter label text, then scan.";
 
 const starterWine = {
   dateAdded: new Date().toISOString().slice(0, 10),
@@ -120,7 +172,7 @@ function normalizeScanResult(result) {
   };
 }
 
-async function scanWineLabelReal({ imageFile, labelText }) {
+async function scanWineLabelReal({ imageFile, labelText, scanMode }) {
   if (!imageFile) {
     throw new Error("Choose a bottle label image first.");
   }
@@ -128,6 +180,7 @@ async function scanWineLabelReal({ imageFile, labelText }) {
   const formData = new FormData();
   formData.append("image", imageFile);
   formData.append("labelText", labelText || "");
+  formData.append("scanMode", scanMode || "Front label");
 
   const res = await fetch("/api/scan-wine-label", {
     method: "POST",
@@ -272,7 +325,7 @@ function TextInput({ value, onChange, placeholder = "" }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     />
   );
 }
@@ -284,7 +337,7 @@ function TextArea({ value, onChange, placeholder = "" }) {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={3}
-      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     />
   );
 }
@@ -294,7 +347,7 @@ function Select({ value, onChange, options }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 md:py-2 md:text-sm"
     >
       {options.map((o) => (
         <option key={o} value={o}>{o}</option>
@@ -303,14 +356,44 @@ function Select({ value, onChange, options }) {
   );
 }
 
-function Section({ title, icon, children }) {
+function Section({ id, title, icon, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
+    <section id={id} className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+      <div className="mb-3 flex items-center gap-2 border-b border-slate-100 pb-3 md:mb-4">
         {icon}
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-base font-semibold text-slate-900 md:text-lg">{title}</h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
+function SaveStatusMessage({ status, compact = false }) {
+  const currentStatus = status || {
+    type: "idle",
+    message: "Ready to save your tasting note when the row looks right.",
+  };
+
+  const classNames = {
+    idle: "border-slate-200 bg-slate-50 text-slate-600",
+    saving: "border-blue-200 bg-blue-50 text-blue-800",
+    success: "border-green-200 bg-green-50 text-green-800",
+    error: "border-red-200 bg-red-50 text-red-800",
+  };
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`${compact ? "mt-2 p-2 text-xs" : "mt-3 p-3 text-sm"} rounded-xl border ${classNames[currentStatus.type] || classNames.idle}`}
+    >
+      <div className="font-medium">
+        {currentStatus.type === "idle" && "Idle"}
+        {currentStatus.type === "saving" && "Saving"}
+        {currentStatus.type === "success" && "Saved successfully"}
+        {currentStatus.type === "error" && "Save failed"}
+      </div>
+      <p className="mt-1">{currentStatus.message}</p>
     </div>
   );
 }
@@ -324,32 +407,46 @@ function createStarterWine() {
 
 export default function WineTastingAppPrototype() {
   const [wine, setWine] = useState(createStarterWine);
-  const [wines, setWines] = useState(() => {
-    try {
-      const saved = localStorage.getItem("wine-log-prototype");
-      return saved ? JSON.parse(saved) : demoWines;
-    } catch {
-      return demoWines;
-    }
-  });
+  const [wines, setWines] = useState(demoWines);
+  const [hasLoadedSavedWines, setHasLoadedSavedWines] = useState(false);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lookupText, setLookupText] = useState("");
-  const [lookupStatus, setLookupStatus] = useState("Upload a bottle label or enter label text, then scan.");
+  const [lookupStatus, setLookupStatus] = useState(INITIAL_LOOKUP_STATUS);
   const [labelPreview, setLabelPreview] = useState(null);
   const [labelFile, setLabelFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [autofillResult, setAutofillResult] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
   const [labelInputKey, setLabelInputKey] = useState(0);
+  const [scanMode, setScanMode] = useState("Front label");
 
   useEffect(() => {
+    const loadSavedWines = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("wine-log-prototype");
+        if (saved) {
+          setWines(JSON.parse(saved));
+        }
+      } catch {
+        setWines(demoWines);
+      } finally {
+        setHasLoadedSavedWines(true);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(loadSavedWines);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSavedWines) return;
     localStorage.setItem("wine-log-prototype", JSON.stringify(wines));
-  }, [wines]);
+  }, [hasLoadedSavedWines, wines]);
 
   const row = useMemo(() => buildSheetRow(wine), [wine]);
   const tsv = useMemo(() => toTsv(row), [row]);
+  const scanFieldReviews = useMemo(() => getScanFieldReviews(autofillResult, wine), [autofillResult, wine]);
 
   const update = (key, value) => {
     setWine((prev) => ({ ...prev, [key]: value }));
@@ -369,11 +466,13 @@ export default function WineTastingAppPrototype() {
   const resetTastingForm = ({ clearSaveStatus = true } = {}) => {
     setWine(createStarterWine());
     setLookupText("");
-    setLookupStatus("Upload a bottle label or enter label text, then scan.");
+    setLookupStatus(INITIAL_LOOKUP_STATUS);
     setLabelFile(null);
     clearLabelPreview();
     setAutofillResult(null);
+    setCopied(false);
     setLabelInputKey((key) => key + 1);
+    setScanMode("Front label");
 
     if (clearSaveStatus) {
       setSaveStatus(null);
@@ -392,7 +491,7 @@ export default function WineTastingAppPrototype() {
     }
 
     const rowToSave = buildSheetRow(wine);
-    setSaveStatus({ type: "info", message: "Saving tasting note to Google Sheet..." });
+    setSaveStatus({ type: "saving", message: "Saving tasting note to Google Sheet..." });
     setIsSaving(true);
 
     try {
@@ -430,11 +529,11 @@ export default function WineTastingAppPrototype() {
   const runAutofill = async () => {
     setIsScanning(true);
     setSaveStatus(null);
-    setLookupStatus("Scanning label with vision...");
+    setLookupStatus(`Scanning ${scanMode.toLowerCase()} with vision...`);
     setAutofillResult(null);
 
     try {
-      const result = await scanWineLabelReal({ imageFile: labelFile, labelText: lookupText });
+      const result = await scanWineLabelReal({ imageFile: labelFile, labelText: lookupText, scanMode });
       setAutofillResult(result);
 
       if (result.status === "matched" || result.status === "uncertain") {
@@ -454,19 +553,22 @@ export default function WineTastingAppPrototype() {
     if (!autofillResult?.fields) return;
     setSaveStatus(null);
     const fields = autofillResult.fields;
-    setWine((prev) => ({
-      ...prev,
-      wine: fields.wine || prev.wine,
-      producer: fields.producer || prev.producer,
-      region: fields.region || prev.region,
-      country: fields.country || prev.country,
-      grape: fields.grape || prev.grape,
-      vintage: fields.vintage || prev.vintage,
-      price: fields.price || prev.price,
-      abv: fields.abv || prev.abv,
-      whereBought: prev.whereBought || "Prefilled from label scan; verify manually",
-    }));
-    setLookupStatus("Applied extracted bottle fields. Now verify anything marked low/medium confidence before saving.");
+    setWine((prev) => {
+      const next = { ...prev };
+
+      scanFieldOrder.forEach((key) => {
+        if (!String(next[key] || "").trim() && String(fields[key] || "").trim()) {
+          next[key] = fields[key];
+        }
+      });
+
+      if (!next.whereBought) {
+        next.whereBought = "Prefilled from label scan; verify manually";
+      }
+
+      return next;
+    });
+    setLookupStatus("Applied only blank bottle fields from the scan. Review any conflicts manually before saving.");
   };
 
   const handleLabelUpload = (file) => {
@@ -478,10 +580,102 @@ export default function WineTastingAppPrototype() {
     setLookupStatus("Photo loaded. Click Scan label to read it with vision.");
   };
 
+  const sectionLinks = [
+    ["bottle", "Bottle"],
+    ["appearance", "Appearance"],
+    ["nose", "Nose"],
+    ["palate", "Palate"],
+    ["judgment", "Judgment"],
+  ];
+  const hasSafeScanFields = scanFieldReviews.some((review) => review.isSafeToApply);
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div className="min-h-screen bg-slate-50 p-4 pb-32 text-slate-900 md:p-8 md:pb-32 lg:pb-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+
+        <div className="order-1 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:order-2 md:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+                {Icons.search}
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Scan the Label</h2>
+              <p className="mt-1 text-sm text-slate-600">Start here on your phone: upload or take a label photo, scan it, then apply the bottle fields.</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-[1fr_.8fr]">
+                <div className="space-y-3">
+                  <Field label="Scan mode">
+                    <Select value={scanMode} onChange={setScanMode} options={scanModeOptions} />
+                  </Field>
+                  <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">{scanModeDescriptions[scanMode]}</p>
+                  <Field label="Label text / search terms">
+                    <TextInput value={lookupText} onChange={setLookupText} placeholder="Optional hint: Reputation Napa Cabernet 2023" />
+                  </Field>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button onClick={runAutofill} disabled={isScanning} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
+                      {Icons.search} {isScanning ? "Scanning..." : "Scan label"}
+                    </button>
+                    <label className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-base font-semibold text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                      📷 Upload label
+                      <input key={labelInputKey} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleLabelUpload(e.target.files?.[0])} />
+                    </label>
+                  </div>
+                  <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{lookupStatus}</p>
+                  <p className="text-xs text-slate-500">Real flow: uploaded image → selected label mode → vision/OCR → extracted bottle facts → review → apply.</p>
+                  {autofillResult && (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">Scan result</div>
+                          <p className="mt-1 text-sm text-slate-600">{autofillResult.summary}</p>
+                        </div>
+                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${autofillResult.status === "matched" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                          {autofillResult.status === "matched" ? "Matched" : "Needs input"}
+                        </span>
+                      </div>
+
+                      {["matched", "uncertain"].includes(autofillResult.status) && (
+                        <div className="mt-3 space-y-2">
+                          <div className="overflow-hidden rounded-xl border border-slate-200">
+                            {scanFieldReviews.map((review) => (
+                              <div key={review.key} className="grid gap-1 border-b border-slate-100 p-2 text-sm last:border-none md:grid-cols-[110px_1fr_1fr_120px]">
+                                <div className="font-medium text-slate-700">{review.label}</div>
+                                <div className="text-slate-600">Current: <span className="font-medium text-slate-900">{review.currentValue || "—"}</span></div>
+                                <div className="text-slate-600">Scanned: <span className="font-medium text-slate-900">{review.scannedValue || "—"}</span></div>
+                                <div className="space-y-1">
+                                  <div className={`rounded-full px-2 py-1 text-xs font-medium ${review.isConflict ? "bg-amber-100 text-amber-900" : review.isSafeToApply ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>
+                                    {review.status}
+                                  </div>
+                                  <div className="text-xs text-slate-500">{review.confidence}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
+                            Confirm: {autofillResult.needsUserConfirmation.join(", ") || "none"}
+                          </div>
+                          {autofillResult.rawText && (
+                            <div className="rounded-xl bg-slate-50 p-2 text-xs text-slate-600">
+                              Read label text: {autofillResult.rawText}
+                            </div>
+                          )}
+                          <button
+                            onClick={applyAutofillResult}
+                            disabled={!hasSafeScanFields}
+                            className="mt-1 inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            ✓ Apply safe blank fields
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex min-h-52 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-sm text-slate-500 md:min-h-36">
+                  {labelPreview ? <img src={labelPreview} alt="Uploaded wine label preview" className="max-h-64 w-full rounded-xl object-contain md:max-h-56" /> : "Bottle label preview"}
+                </div>
+              </div>
+            </div>
+        <div className="order-2 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm md:order-1">
           <div className="grid gap-6 p-6 md:grid-cols-[1.4fr_.9fr] md:p-8">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
@@ -500,73 +694,20 @@ export default function WineTastingAppPrototype() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
+        <div className="order-3 grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center gap-2">
-                {Icons.search}
-                <h2 className="text-lg font-semibold text-slate-900">Autofill Bottle Info</h2>
+            <nav aria-label="Jump to tasting section" className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Jump to</div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {sectionLinks.map(([id, label]) => (
+                  <a key={id} href={`#${id}`} className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200">
+                    {label}
+                  </a>
+                ))}
               </div>
-              <div className="grid gap-4 md:grid-cols-[1fr_.8fr]">
-                <div className="space-y-3">
-                  <Field label="Label text / search terms">
-                    <TextInput value={lookupText} onChange={setLookupText} placeholder="Optional hint: Reputation Napa Cabernet 2023" />
-                  </Field>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={runAutofill} disabled={isScanning} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
-                      {Icons.search} {isScanning ? "Scanning..." : "Scan label"}
-                    </button>
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50">
-                      📷 Upload label
-                      <input key={labelInputKey} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleLabelUpload(e.target.files?.[0])} />
-                    </label>
-                  </div>
-                  <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{lookupStatus}</p>
-                  <p className="text-xs text-slate-500">Real flow: uploaded image → vision/OCR → extracted bottle facts → review → apply.</p>
-                  {autofillResult && (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900">Scan result</div>
-                          <p className="mt-1 text-sm text-slate-600">{autofillResult.summary}</p>
-                        </div>
-                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${autofillResult.status === "matched" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                          {autofillResult.status === "matched" ? "Matched" : "Needs input"}
-                        </span>
-                      </div>
+            </nav>
 
-                      {autofillResult.status === "matched" && (
-                        <div className="mt-3 space-y-2">
-                          {Object.entries(autofillResult.fields).map(([key, value]) => (
-                            <div key={key} className="grid grid-cols-[90px_1fr_70px] gap-2 text-sm">
-                              <div className="capitalize text-slate-500">{key}</div>
-                              <div className="font-medium text-slate-900">{value || "—"}</div>
-                              <div className="text-xs text-slate-500">{autofillResult.confidence?.[key] || "—"}</div>
-                            </div>
-                          ))}
-                          <div className="rounded-xl bg-amber-50 p-2 text-xs text-amber-900">
-                            Confirm: {autofillResult.needsUserConfirmation.join(", ")}
-                          </div>
-                          {autofillResult.rawText && (
-                            <div className="rounded-xl bg-slate-50 p-2 text-xs text-slate-600">
-                              Read label text: {autofillResult.rawText}
-                            </div>
-                          )}
-                          <button onClick={applyAutofillResult} className="mt-1 inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-600">
-                            ✓ Apply to bottle fields
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex min-h-36 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-sm text-slate-500">
-                  {labelPreview ? <img src={labelPreview} alt="Uploaded wine label preview" className="max-h-48 rounded-xl object-contain" /> : "Bottle label preview"}
-                </div>
-              </div>
-            </div>
-
-            <Section title="Bottle Info" icon={Icons.wine}>
+            <Section id="bottle" title="Bottle Info" icon={Icons.wine}>
               <Field label="Wine"><TextInput value={wine.wine} onChange={(v) => update("wine", v)} placeholder="Reputation" /></Field>
               <Field label="Producer / Label"><TextInput value={wine.producer} onChange={(v) => update("producer", v)} placeholder="Optional" /></Field>
               <Field label="Region"><TextInput value={wine.region} onChange={(v) => update("region", v)} placeholder="Napa Valley" /></Field>
@@ -578,13 +719,13 @@ export default function WineTastingAppPrototype() {
               <Field label="Date tasted"><TextInput value={wine.dateAdded} onChange={(v) => update("dateAdded", v)} /></Field>
             </Section>
 
-            <Section title="Appearance" icon={Icons.check}>
+            <Section id="appearance" title="Appearance" icon={Icons.check}>
               <Field label="Color"><TextInput value={wine.appearanceColor} onChange={(v) => update("appearanceColor", v)} placeholder="Dark red, ruby, gold..." /></Field>
               <Field label="Clear or cloudy?"><TextInput value={wine.appearanceClarity} onChange={(v) => update("appearanceClarity", v)} placeholder="Clear, opaque, cloudy, sediment..." /></Field>
               <Field label="Color depth"><Select value={wine.appearanceIntensity} onChange={(v) => update("appearanceIntensity", v)} options={["", "Pale", "Medium", "Deep", "Deep / intense"]} /></Field>
             </Section>
 
-            <Section title="Nose" icon={Icons.search}>
+            <Section id="nose" title="Nose" icon={Icons.search}>
               <Field label="Aroma intensity"><Select value={wine.noseIntensity} onChange={(v) => update("noseIntensity", v)} options={["", "Light", "Medium", "Pronounced", "Medium/pronounced"]} /></Field>
               <Field label="Fruit notes"><TextInput value={wine.fruitNotes} onChange={(v) => update("fruitNotes", v)} placeholder="Dark plum, cherry, lemon..." /></Field>
               <Field label="Non-fruit notes"><TextInput value={wine.nonFruitNotes} onChange={(v) => update("nonFruitNotes", v)} placeholder="Vanilla, earth, spice, mushroom..." /></Field>
@@ -592,7 +733,7 @@ export default function WineTastingAppPrototype() {
               <Field label="Any flaw?"><Select value={wine.flaw} onChange={(v) => update("flaw", v)} options={["Clean", "Corked", "Oxidized", "Brett / barnyard", "Unsure"]} /></Field>
             </Section>
 
-            <Section title="Palate" icon={Icons.star}>
+            <Section id="palate" title="Palate" icon={Icons.star}>
               <Field label="Sweetness"><Select value={wine.sweetness} onChange={(v) => update("sweetness", v)} options={["Dry", "Off-dry", "Medium-sweet", "Sweet"]} /></Field>
               <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 md:mt-6">
                 <input type="checkbox" checked={wine.perceivedSweetness} onChange={(e) => update("perceivedSweetness", e.target.checked)} />
@@ -610,7 +751,7 @@ export default function WineTastingAppPrototype() {
               <Field label="General palate note"><TextArea value={wine.palateNotes} onChange={(v) => update("palateNotes", v)} placeholder="What happened when you tasted it?" /></Field>
             </Section>
 
-            <Section title="Judgment" icon={Icons.save}>
+            <Section id="judgment" title="Judgment" icon={Icons.save}>
               <Field label="Food pairing"><TextInput value={wine.foodPairing} onChange={(v) => update("foodPairing", v)} placeholder="Steak, lamb, BBQ..." /></Field>
               <Field label="Avoid pairing with"><TextInput value={wine.avoidPairing} onChange={(v) => update("avoidPairing", v)} placeholder="Optional" /></Field>
               <Field label="Balance"><Select value={wine.balance} onChange={(v) => update("balance", v)} options={["Poor", "Okay", "Good", "Excellent"]} /></Field>
@@ -650,20 +791,7 @@ export default function WineTastingAppPrototype() {
                   {Icons.reset} Reset
                 </button>
               </div>
-              {saveStatus && (
-                <p
-                  role="status"
-                  className={`mt-3 rounded-xl p-3 text-sm ${
-                    saveStatus.type === "success"
-                      ? "bg-green-50 text-green-800"
-                      : saveStatus.type === "error"
-                        ? "bg-red-50 text-red-800"
-                        : "bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {saveStatus.message}
-                </p>
-              )}
+              <SaveStatusMessage status={saveStatus} />
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -710,6 +838,19 @@ export default function WineTastingAppPrototype() {
               <p className="mt-1">Autofill calls your real /api/scan-wine-label route. Save now posts to /api/save-tasting, which should forward the row to your Google Sheet webhook.</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-10px_25px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+        <div className="mx-auto max-w-7xl">
+          <button
+            onClick={saveWine}
+            disabled={isSaving}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-base font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
+          </button>
+          <SaveStatusMessage status={saveStatus} compact />
         </div>
       </div>
     </div>
