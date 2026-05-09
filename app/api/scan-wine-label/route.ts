@@ -1,0 +1,98 @@
+import OpenAI from "openai";
+
+export const runtime = "nodejs";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData();
+    const image = formData.get("image");
+
+    if (!(image instanceof File)) {
+      return Response.json(
+        { error: "Missing image file. Use FormData field name 'image'." },
+        { status: 400 }
+      );
+    }
+
+    const bytes = Buffer.from(await image.arrayBuffer());
+    const base64 = bytes.toString("base64");
+    const mimeType = image.type || "image/jpeg";
+
+    const response = await openai.responses.create({
+      model: "gpt-5.1",
+      input: [
+        {
+          role: "system",
+          content:
+            "You extract structured wine bottle label information. Use only visible label evidence unless a field is obvious from wine geography. Do not invent tasting notes.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: `
+Read this wine bottle label and extract bottle facts.
+
+Return ONLY valid JSON with this exact shape:
+{
+  "status": "matched | uncertain | no_match",
+  "summary": "",
+  "rawText": "",
+  "fields": {
+    "wine": "",
+    "producer": "",
+    "region": "",
+    "country": "",
+    "grape": "",
+    "vintage": "",
+    "price": "",
+    "abv": ""
+  },
+  "confidence": {
+    "wine": "High | Medium | Low | Unknown",
+    "producer": "High | Medium | Low | Unknown",
+    "region": "High | Medium | Low | Unknown",
+    "country": "High | Medium | Low | Unknown",
+    "grape": "High | Medium | Low | Unknown",
+    "vintage": "High | Medium | Low | Unknown",
+    "price": "High | Medium | Low | Unknown",
+    "abv": "High | Medium | Low | Unknown"
+  },
+  "needsUserConfirmation": [],
+  "sourceNote": ""
+}
+
+Rules:
+- wine = the short wine/label name only. Do not include region, grape, or vintage if they have separate fields.
+- Extract only bottle facts.
+- Do not invent tasting notes.
+- Do not guess price unless it is visible.
+- Country may be inferred only from clear regions like Napa Valley.
+- If a field is not visible, leave it blank and mark confidence Unknown.
+              `.trim(),
+            },
+            {
+              type: "input_image",
+              image_url: `data:${mimeType};base64,${base64}`,
+              detail: "high",
+            },
+          ],
+        },
+      ],
+    });
+
+    const parsed = JSON.parse(response.output_text.trim());
+    return Response.json(parsed);
+  } catch (error) {
+    console.error(error);
+    return Response.json(
+      { error: "Failed to scan wine label." },
+      { status: 500 }
+    );
+  }
+}
