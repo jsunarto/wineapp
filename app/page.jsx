@@ -137,6 +137,27 @@ const starterWine = {
   oneLineMemory: "",
 };
 
+const scanModeOptions = ["Front label", "Back label", "Both / additional label"];
+
+const scanModeDescriptions = {
+  "Front label": "Looking for wine name, producer/label, region, country, grape, and vintage.",
+  "Back label": "Looking for ABV, producer/bottler/importer, and technical label facts.",
+  "Both / additional label": "Will merge additional facts into the current bottle fields without overwriting differences automatically.",
+};
+
+const scanFieldLabels = {
+  wine: "Wine",
+  producer: "Producer / Label",
+  region: "Region",
+  country: "Country",
+  grape: "Grape / Blend",
+  vintage: "Vintage",
+  price: "Price",
+  abv: "Listed ABV",
+};
+
+const scanFieldOrder = ["wine", "producer", "region", "country", "grape", "vintage", "price", "abv"];
+
 function normalizeCountry(country) {
   if (!country) return "";
   const cleaned = country.trim();
@@ -398,11 +419,65 @@ function SaveStatusMessage({ status, compact = false }) {
   );
 }
 
+function SaveStatusMessage({ status }) {
+  const currentStatus = status || {
+    type: "idle",
+    message: "Ready to save your tasting note when the row looks right.",
+  };
+
+  const classNames = {
+    idle: "border-slate-200 bg-slate-50 text-slate-600",
+    saving: "border-blue-200 bg-blue-50 text-blue-800",
+    success: "border-green-200 bg-green-50 text-green-800",
+    error: "border-red-200 bg-red-50 text-red-800",
+  };
+
+  return (
+    <div role="status" aria-live="polite" className={`mt-3 rounded-xl border p-3 text-sm ${classNames[currentStatus.type]}`}>
+      <div className="font-medium">
+        {currentStatus.type === "idle" && "Idle"}
+        {currentStatus.type === "saving" && "Saving"}
+        {currentStatus.type === "success" && "Saved successfully"}
+        {currentStatus.type === "error" && "Save failed"}
+      </div>
+      <p className="mt-1">{currentStatus.message}</p>
+    </div>
+  );
+}
+
 function createStarterWine() {
   return {
     ...starterWine,
     dateAdded: new Date().toISOString().slice(0, 10),
   };
+}
+
+function comparableScanValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getScanFieldReviews(result, currentWine) {
+  const fields = result?.fields || {};
+
+  return scanFieldOrder.map((key) => {
+    const currentValue = currentWine?.[key] || "";
+    const scannedValue = fields[key] || "";
+    const hasCurrent = Boolean(String(currentValue).trim());
+    const hasScanned = Boolean(String(scannedValue).trim());
+    const isConflict = hasCurrent && hasScanned && comparableScanValue(currentValue) !== comparableScanValue(scannedValue);
+    const isSafeToApply = !hasCurrent && hasScanned;
+
+    return {
+      key,
+      label: scanFieldLabels[key] || key,
+      currentValue,
+      scannedValue,
+      confidence: result?.confidence?.[key] || "—",
+      status: isConflict ? "needs confirmation" : isSafeToApply ? "safe to apply" : hasScanned ? "already matches or filled" : "not found",
+      isConflict,
+      isSafeToApply,
+    };
+  });
 }
 
 export default function WineTastingAppPrototype() {
