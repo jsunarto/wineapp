@@ -344,6 +344,7 @@ function SaveStatusMessage({ status }) {
     type: "idle",
     message: "Ready to save your tasting note when the row looks right.",
   };
+
   const classNames = {
     idle: "border-slate-200 bg-slate-50 text-slate-600",
     saving: "border-blue-200 bg-blue-50 text-blue-800",
@@ -407,7 +408,6 @@ export default function WineTastingAppPrototype() {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lookupText, setLookupText] = useState("");
-  const [scanMode, setScanMode] = useState("Front label");
   const [lookupStatus, setLookupStatus] = useState(INITIAL_LOOKUP_STATUS);
   const [labelPreview, setLabelPreview] = useState(null);
   const [labelFile, setLabelFile] = useState(null);
@@ -415,6 +415,7 @@ export default function WineTastingAppPrototype() {
   const [autofillResult, setAutofillResult] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
   const [labelInputKey, setLabelInputKey] = useState(0);
+  const [scanMode, setScanMode] = useState("Front label");
 
   useEffect(() => {
     const loadSavedWines = window.setTimeout(() => {
@@ -460,13 +461,13 @@ export default function WineTastingAppPrototype() {
   const resetTastingForm = ({ clearSaveStatus = true } = {}) => {
     setWine(createStarterWine());
     setLookupText("");
-    setScanMode("Front label");
     setLookupStatus(INITIAL_LOOKUP_STATUS);
     setLabelFile(null);
     clearLabelPreview();
     setAutofillResult(null);
     setCopied(false);
     setLabelInputKey((key) => key + 1);
+    setScanMode("Front label");
 
     if (clearSaveStatus) {
       setSaveStatus(null);
