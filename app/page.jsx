@@ -44,6 +44,8 @@ const sheetColumns = [
   "Critic Score / Source",
 ];
 
+const INITIAL_LOOKUP_STATUS = "Upload a bottle label or enter label text, then scan.";
+
 const starterWine = {
   dateAdded: new Date().toISOString().slice(0, 10),
   wine: "",
@@ -315,6 +317,32 @@ function Section({ title, icon, children }) {
   );
 }
 
+function SaveStatusMessage({ status }) {
+  const currentStatus = status || {
+    type: "idle",
+    message: "Ready to save your tasting note when the row looks right.",
+  };
+
+  const classNames = {
+    idle: "border-slate-200 bg-slate-50 text-slate-600",
+    saving: "border-blue-200 bg-blue-50 text-blue-800",
+    success: "border-green-200 bg-green-50 text-green-800",
+    error: "border-red-200 bg-red-50 text-red-800",
+  };
+
+  return (
+    <div role="status" aria-live="polite" className={`mt-3 rounded-xl border p-3 text-sm ${classNames[currentStatus.type]}`}>
+      <div className="font-medium">
+        {currentStatus.type === "idle" && "Idle"}
+        {currentStatus.type === "saving" && "Saving"}
+        {currentStatus.type === "success" && "Saved successfully"}
+        {currentStatus.type === "error" && "Save failed"}
+      </div>
+      <p className="mt-1">{currentStatus.message}</p>
+    </div>
+  );
+}
+
 function createStarterWine() {
   return {
     ...starterWine,
@@ -336,7 +364,7 @@ export default function WineTastingAppPrototype() {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lookupText, setLookupText] = useState("");
-  const [lookupStatus, setLookupStatus] = useState("Upload a bottle label or enter label text, then scan.");
+  const [lookupStatus, setLookupStatus] = useState(INITIAL_LOOKUP_STATUS);
   const [labelPreview, setLabelPreview] = useState(null);
   const [labelFile, setLabelFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -369,10 +397,11 @@ export default function WineTastingAppPrototype() {
   const resetTastingForm = ({ clearSaveStatus = true } = {}) => {
     setWine(createStarterWine());
     setLookupText("");
-    setLookupStatus("Upload a bottle label or enter label text, then scan.");
+    setLookupStatus(INITIAL_LOOKUP_STATUS);
     setLabelFile(null);
     clearLabelPreview();
     setAutofillResult(null);
+    setCopied(false);
     setLabelInputKey((key) => key + 1);
 
     if (clearSaveStatus) {
@@ -392,7 +421,7 @@ export default function WineTastingAppPrototype() {
     }
 
     const rowToSave = buildSheetRow(wine);
-    setSaveStatus({ type: "info", message: "Saving tasting note to Google Sheet..." });
+    setSaveStatus({ type: "saving", message: "Saving tasting note to Google Sheet..." });
     setIsSaving(true);
 
     try {
@@ -650,20 +679,7 @@ export default function WineTastingAppPrototype() {
                   {Icons.reset} Reset
                 </button>
               </div>
-              {saveStatus && (
-                <p
-                  role="status"
-                  className={`mt-3 rounded-xl p-3 text-sm ${
-                    saveStatus.type === "success"
-                      ? "bg-green-50 text-green-800"
-                      : saveStatus.type === "error"
-                        ? "bg-red-50 text-red-800"
-                        : "bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {saveStatus.message}
-                </p>
-              )}
+              <SaveStatusMessage status={saveStatus} />
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
