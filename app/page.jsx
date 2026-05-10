@@ -16,6 +16,7 @@ export default function WineTastingAppPrototype() {
   const [wines, setWines] = useState(demoWines);
   const [hasLoadedSavedWines, setHasLoadedSavedWines] = useState(false);
   const [query, setQuery] = useState("");
+  const [selectedWine, setSelectedWine] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lookupText, setLookupText] = useState("");
@@ -33,10 +34,15 @@ export default function WineTastingAppPrototype() {
       try {
         const saved = localStorage.getItem("wine-log-prototype");
         if (saved) {
-          setWines(JSON.parse(saved));
+          const parsedWines = JSON.parse(saved);
+          setWines(parsedWines);
+          setSelectedWine(parsedWines[0] ? { ...createStarterWine(), ...parsedWines[0] } : null);
+        } else {
+          setSelectedWine(demoWines[0] ? { ...createStarterWine(), ...demoWines[0] } : null);
         }
       } catch {
         setWines(demoWines);
+        setSelectedWine(demoWines[0] ? { ...createStarterWine(), ...demoWines[0] } : null);
       } finally {
         setHasLoadedSavedWines(true);
       }
@@ -115,7 +121,9 @@ export default function WineTastingAppPrototype() {
         throw new Error(data.error || "Failed to save to Google Sheet.");
       }
 
-      setWines((prev) => [{ ...wine, id: crypto.randomUUID() }, ...prev]);
+      const savedWine = { ...wine, id: crypto.randomUUID() };
+      setWines((prev) => [savedWine, ...prev]);
+      setSelectedWine({ ...createStarterWine(), ...savedWine });
       resetTastingForm({ clearSaveStatus: false });
       setSaveStatus({ type: "success", message: "Saved to Google Sheet. Ready for your next tasting note." });
     } catch (error) {
@@ -266,9 +274,11 @@ export default function WineTastingAppPrototype() {
 
             <WineLog
               filteredWines={filtered}
+              onLoadWine={setWine}
               onQueryChange={setQuery}
-              onWineSelect={setWine}
+              onWineSelect={setSelectedWine}
               query={query}
+              selectedWine={selectedWine}
               wines={wines}
             />
 
