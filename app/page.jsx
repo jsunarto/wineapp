@@ -92,11 +92,6 @@ export default function WineTastingAppPrototype() {
     }
   };
 
-  const filtered = wines.filter((currentWine) => {
-    const haystack = `${currentWine.wine} ${currentWine.region} ${currentWine.country} ${currentWine.grape} ${currentWine.vintage} ${currentWine.buyAgain} ${currentWine.rating}`.toLowerCase();
-    return haystack.includes(query.toLowerCase());
-  });
-
   const saveWine = async () => {
     if (!wine.wine.trim()) {
       setSaveStatus({ type: "error", message: "Add a wine name before saving." });
@@ -276,7 +271,6 @@ export default function WineTastingAppPrototype() {
             <PalateDashboard wines={wines} />
 
             <WineLog
-              filteredWines={filtered}
               onLoadWine={setWine}
               onQueryChange={setQuery}
               onWineSelect={setSelectedWine}
