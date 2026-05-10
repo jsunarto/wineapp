@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import AutofillBottleInfo from "../components/AutofillBottleInfo";
 import BottleInfoSection from "../components/BottleInfoSection";
+import PalateDashboard from "../components/PalateDashboard";
 import { Icons } from "../components/icons";
 import SaveStatusMessage from "../components/SaveStatusMessage";
 import SheetReadyRow from "../components/SheetReadyRow";
@@ -271,6 +272,8 @@ export default function WineTastingAppPrototype() {
               row={row}
               saveStatus={saveStatus}
             />
+
+            <PalateDashboard wines={wines} />
 
             <WineLog
               filteredWines={filtered}
