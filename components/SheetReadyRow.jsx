@@ -1,7 +1,8 @@
+import LearningCoachCard from "./LearningCoachCard";
 import SaveStatusMessage from "./SaveStatusMessage";
 import { sheetColumns } from "../lib/wineSheet";
 
-export default function SheetReadyRow({ copied, icons, isSaving, onCopyRow, onReset, onSaveWine, row, saveStatus }) {
+export default function SheetReadyRow({ copied, icons, isSaving, learningCoach, onCopyRow, onReset, onSaveWine, row, saveStatus }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-lg font-semibold">Sheet-ready row</h2>
@@ -30,6 +31,7 @@ export default function SheetReadyRow({ copied, icons, isSaving, onCopyRow, onRe
         </button>
       </div>
       <SaveStatusMessage status={saveStatus} />
+      <LearningCoachCard coach={learningCoach} />
     </div>
   );
 }

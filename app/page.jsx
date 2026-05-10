@@ -3,12 +3,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import AutofillBottleInfo from "../components/AutofillBottleInfo";
 import BottleInfoSection from "../components/BottleInfoSection";
+import LearningCoachCard from "../components/LearningCoachCard";
 import PalateDashboard from "../components/PalateDashboard";
 import { Icons } from "../components/icons";
 import SaveStatusMessage from "../components/SaveStatusMessage";
 import SheetReadyRow from "../components/SheetReadyRow";
 import TastingSections from "../components/TastingSections";
 import WineLog from "../components/WineLog";
+import { generateLearningCoach } from "../lib/learningCoach";
 import { getScanFieldReviews, scanFieldOrder, scanWineLabelReal } from "../lib/scanNormalize";
 import { buildSheetRow, createStarterWine, demoWines, INITIAL_LOOKUP_STATUS, toTsv } from "../lib/wineSheet";
 
@@ -29,6 +31,7 @@ export default function WineTastingAppPrototype() {
   const [saveStatus, setSaveStatus] = useState(null);
   const [labelInputKey, setLabelInputKey] = useState(0);
   const [scanMode, setScanMode] = useState("Front label");
+  const [learningCoach, setLearningCoach] = useState(null);
 
   useEffect(() => {
     const loadSavedWines = window.setTimeout(() => {
@@ -64,6 +67,7 @@ export default function WineTastingAppPrototype() {
   const update = (key, value) => {
     setWine((prev) => ({ ...prev, [key]: value }));
     setSaveStatus(null);
+    setLearningCoach(null);
   };
 
   const clearLabelPreview = () => {
@@ -86,6 +90,7 @@ export default function WineTastingAppPrototype() {
     setCopied(false);
     setLabelInputKey((key) => key + 1);
     setScanMode("Front label");
+    setLearningCoach(null);
 
     if (clearSaveStatus) {
       setSaveStatus(null);
@@ -94,11 +99,13 @@ export default function WineTastingAppPrototype() {
 
   const saveWine = async () => {
     if (!wine.wine.trim()) {
+      setLearningCoach(null);
       setSaveStatus({ type: "error", message: "Add a wine name before saving." });
       return;
     }
 
     const rowToSave = buildSheetRow(wine);
+    setLearningCoach(null);
     setSaveStatus({ type: "saving", message: "Saving tasting note to Google Sheet..." });
     setIsSaving(true);
 
@@ -118,9 +125,11 @@ export default function WineTastingAppPrototype() {
       }
 
       const savedWine = { ...wine, id: crypto.randomUUID() };
+      const coach = generateLearningCoach(savedWine);
       setWines((prev) => [savedWine, ...prev]);
       setSelectedWine({ ...createStarterWine(), ...savedWine });
       resetTastingForm({ clearSaveStatus: false });
+      setLearningCoach(coach);
       setSaveStatus({ type: "success", message: "Saved to Google Sheet. Ready for your next tasting note." });
     } catch (error) {
       console.error(error);
@@ -139,6 +148,7 @@ export default function WineTastingAppPrototype() {
   const runAutofill = async () => {
     setIsScanning(true);
     setSaveStatus(null);
+    setLearningCoach(null);
     setLookupStatus(`Scanning ${scanMode.toLowerCase()} with vision...`);
     setAutofillResult(null);
 
@@ -162,6 +172,7 @@ export default function WineTastingAppPrototype() {
   const applyAutofillResult = () => {
     if (!autofillResult?.fields) return;
     setSaveStatus(null);
+    setLearningCoach(null);
     const fields = autofillResult.fields;
     setWine((prev) => {
       const next = { ...prev };
@@ -187,6 +198,7 @@ export default function WineTastingAppPrototype() {
     clearLabelPreview();
     setLabelPreview(URL.createObjectURL(file));
     setAutofillResult(null);
+    setLearningCoach(null);
     setLookupStatus("Photo loaded. Click Scan label to read it with vision.");
   };
 
@@ -198,6 +210,12 @@ export default function WineTastingAppPrototype() {
     ["judgment", "Judgment"],
   ];
   const hasSafeScanFields = scanFieldReviews.some((review) => review.isSafeToApply);
+
+  const loadWineIntoForm = (wineToLoad) => {
+    setWine(wineToLoad);
+    setSaveStatus(null);
+    setLearningCoach(null);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-32 text-slate-900 md:p-8 md:pb-32 lg:pb-8">
@@ -232,9 +250,9 @@ export default function WineTastingAppPrototype() {
               </p>
             </div>
             <div className="rounded-2xl bg-slate-900 p-5 text-white">
-              <div className="flex items-center gap-2 text-sm text-slate-300">{Icons.book} Next skill focus</div>
-              <p className="mt-2 text-xl font-semibold">Separate fruitiness from sweetness.</p>
-              <p className="mt-2 text-sm text-slate-300">A wine can taste ripe, jammy, or vanilla-sweet while still being technically dry.</p>
+              <div className="flex items-center gap-2 text-sm text-slate-300">{Icons.book} Learning coach</div>
+              <p className="mt-2 text-xl font-semibold">Save first, then review your feedback.</p>
+              <p className="mt-2 text-sm text-slate-300">Your coach card appears only after saving, using the tasting details you entered.</p>
             </div>
           </div>
         </div>
@@ -266,12 +284,13 @@ export default function WineTastingAppPrototype() {
               onSaveWine={saveWine}
               row={row}
               saveStatus={saveStatus}
+              learningCoach={learningCoach}
             />
 
             <PalateDashboard wines={wines} />
 
             <WineLog
-              onLoadWine={setWine}
+              onLoadWine={loadWineIntoForm}
               onQueryChange={setQuery}
               onWineSelect={setSelectedWine}
               query={query}
@@ -297,6 +316,7 @@ export default function WineTastingAppPrototype() {
             {Icons.save} {isSaving ? "Saving..." : "Save to Sheet"}
           </button>
           <SaveStatusMessage status={saveStatus} compact />
+          <LearningCoachCard coach={learningCoach} compact />
         </div>
       </div>
     </div>
